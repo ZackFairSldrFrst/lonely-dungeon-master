@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lonely Dungeon Master</title>
+  <meta name="description" content="Play D&D at your own table without a group. A webcam watches your miniatures, a small projector lights up the board, and an AI Dungeon Master runs the game out loud. Free and open source." />
+  <meta property="og:title" content="Lonely Dungeon Master" />
+  <meta property="og:description" content="Your campaign shouldn't wait for five calendars to line up. An AI Dungeon Master for a real table, real miniatures, and a projector." />
+  <meta property="og:image" content="projector.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Lora:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --background: #ffffff;
+      --surface: #ffffff;
+      --surface-secondary: #f9f7f5;
+      --surface-elevated: #ffffff;
+      --border: #e7e2dd;
+      --border-subtle: #efebe7;
+      --text-primary: #17130f;
+      --text-secondary: #4b5563;
+      --text-tertiary: #5f6774;
+      --accent: #c4855a;
+      --accent-rgb: 196, 133, 90;
+      --accent-dark: #9a5d3a;
+      --accent-text: var(--accent-dark);
+      --table: #121014;
+      --dur-1: 120ms; --dur-2: 200ms; --dur-3: 320ms; --dur-4: 500ms;
+      --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+      --ease-settle: linear(0, 0.22 6%, 0.56 14%, 0.86 24%, 1.03 35%, 1.05 42%, 1.02 55%, 0.995 70%, 1);
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #09080a;
+        --surface: #0f0d10;
+        --surface-secondary: #141215;
+        --surface-elevated: #1a171c;
+        --border: #221e24;
+        --border-subtle: rgba(255, 255, 255, 0.1);
+        --text-primary: #f0ece8;
+        --text-secondary: #a8a09d;
+        --text-tertiary: #938b88;
+        --accent-text: var(--accent);
+        --table: #0c0b0d;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; background: var(--background); color: var(--text-primary);
+      font: 400 17px/1.6 "DM Sans", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent-text); text-underline-offset: 3px; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 640px) { .wrap { padding: 0 32px; } }
+
+    /* ---------- nav */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-primary); text-decoration: none; }
+    .brand-mark {
+      width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+      background: rgba(var(--accent-rgb), .14); color: var(--accent-text);
+    }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .nav-links a.quiet { color: var(--text-secondary); text-decoration: none; padding: 10px 12px; min-height: 44px; display: inline-flex; align-items: center; }
+    .nav-links a.quiet:hover { color: var(--text-primary); }
+    @media (max-width: 639px) { .nav-links a.quiet { display: none; } }
+
+    /* ---------- buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px;
+      border-radius: 12px; font: 600 15px/1 "DM Sans", sans-serif; text-decoration: none;
+      transition: background var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), border-color var(--dur-2);
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent-dark); color: #fff; }
+    .btn-primary:hover { background: #824f31; }
+    .btn-ghost { border: 1px solid var(--border); color: var(--text-primary); background: var(--surface); }
+    .btn-ghost:hover { border-color: var(--accent); }
+    .btn svg { width: 18px; height: 18px; }
+
+    /* ---------- hero */
+    .hero { display: grid; gap: 40px; align-items: center; padding: 40px 0 72px; }
+    @media (min-width: 960px) { .hero { grid-template-columns: 1.05fr 1fr; padding: 72px 0 104px; } }
+    .eyebrow { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--text-secondary);
+      border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    h1, h2 { font-family: Lora, Georgia, serif; font-weight: 600; letter-spacing: -0.01em; }
+    h1 { font-size: clamp(38px, 6vw, 64px); line-height: 1.06; margin: 20px 0 18px; }
+    h1 em { font-style: italic; color: var(--accent-text); font-weight: 500; }
+    .lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--text-secondary); max-width: 34em; margin: 0 0 28px; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .small { font-size: 14px; color: var(--text-tertiary); margin-top: 16px; }
+
+    /* ---------- animated table */
+    .table-scene {
+      position: relative; aspect-ratio: 4 / 3; border-radius: 20px; overflow: hidden;
+      background: var(--table); border: 1px solid var(--border);
+    }
+    .table-scene svg { width: 100%; height: 100%; display: block; }
+    .cap { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 16px; border-radius: 12px;
+      background: rgba(10, 8, 6, .82); color: #f4e9d1; font: 500 15px/1.4 Lora, Georgia, serif; text-align: center;
+      opacity: 0; transform: translateY(8px); animation: cap 12s var(--ease-out) infinite; }
+    @keyframes cap { 0%, 38% { opacity: 0; transform: translateY(8px); } 44%, 82% { opacity: 1; transform: none; } 90%, 100% { opacity: 0; transform: translateY(4px); } }
+    .walk { animation: walk 12s ease-in-out infinite; }
+    @keyframes walk { 0%, 8% { transform: translate(0, 0); } 30%, 100% { transform: translate(80px, -30px); } }
+    .goblin { animation: goblin 12s ease-in-out infinite; }
+    @keyframes goblin { 0%, 18% { opacity: .0; } 28%, 100% { opacity: 1; } }
+    .ring-spin { transform-box: fill-box; transform-origin: center; animation: spin 6s linear infinite; }
+    .aura-pulse { transform-box: fill-box; transform-origin: center; animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 50% { transform: scale(1.12); opacity: .7; } }
+    .spell { transform-box: fill-box; transform-origin: center; animation: spell 12s var(--ease-out) infinite; opacity: 0; }
+    @keyframes spell { 0%, 36% { opacity: 0; transform: scale(.2); } 42% { opacity: 1; transform: scale(1); } 78% { opacity: .9; transform: scale(1.04); } 88%, 100% { opacity: 0; transform: scale(1.1); } }
+    .burst { transform-box: fill-box; transform-origin: center; animation: burst 12s var(--ease-out) infinite; opacity: 0; }
+    @keyframes burst { 0%, 37% { opacity: 0; transform: scale(.1); } 39% { opacity: 1; } 52%, 100% { opacity: 0; transform: scale(1.5); } }
+    .mic { animation: mic 12s ease-in-out infinite; opacity: 0; }
+    @keyframes mic { 0%, 22% { opacity: 0; } 26%, 36% { opacity: 1; } 40%, 100% { opacity: 0; } }
+
+    /* ---------- sections */
+    section { padding: 72px 0; border-top: 1px solid var(--border-subtle); }
+    h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; margin: 0 0 14px; }
+    .section-lede { color: var(--text-secondary); max-width: 40em; margin: 0 0 36px; font-size: 18px; }
+    .grid3 { display: grid; gap: 16px; }
+    @media (min-width: 760px) { .grid3 { grid-template-columns: repeat(3, 1fr); } }
+    .grid2 { display: grid; gap: 16px; }
+    @media (min-width: 760px) { .grid2 { grid-template-columns: repeat(2, 1fr); } }
+    .card {
+      border: 1px solid var(--border); border-radius: 16px; padding: 24px; background: var(--surface-elevated);
+      transition: border-color var(--dur-2), transform var(--dur-3) var(--ease-out);
+    }
+    .card:hover { border-color: rgba(var(--accent-rgb), .55); transform: translateY(-2px); }
+    .card h3 { font-size: 18px; margin: 14px 0 6px; font-weight: 600; }
+    .card p { margin: 0; color: var(--text-secondary); font-size: 16px; }
+    .icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+      background: rgba(var(--accent-rgb), .14); color: var(--accent-text); }
+    .icon svg { width: 20px; height: 20px; }
+
+    .steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; counter-reset: step; }
+    @media (min-width: 760px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+    .steps li { counter-increment: step; }
+    .steps .num { font: 600 13px/1 "DM Sans"; color: var(--accent-text); letter-spacing: .06em; }
+    .steps .num::before { content: "STEP " counter(step); }
+
+    figure { margin: 0; }
+    .shot { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: #000; }
+    .shot img { width: 100%; height: auto; display: block; }
+    figcaption { color: var(--text-tertiary); font-size: 14px; margin-top: 10px; }
+
+    .check { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .check li { display: flex; gap: 12px; align-items: flex-start; color: var(--text-secondary); }
+    .check li svg { flex: none; width: 20px; height: 20px; margin-top: 3px; color: var(--accent-text); }
+    .check b { color: var(--text-primary); font-weight: 600; }
+
+    pre {
+      margin: 0; padding: 20px; border-radius: 16px; overflow-x: auto; border: 1px solid var(--border);
+      background: var(--surface-secondary); font: 14px/1.7 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-primary);
+    }
+    pre .c { color: var(--text-tertiary); }
+
+    details { border: 1px solid var(--border); border-radius: 14px; padding: 0 20px; background: var(--surface-elevated); }
+    details + details { margin-top: 10px; }
+    summary { cursor: pointer; font-weight: 600; min-height: 56px; display: flex; align-items: center; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; margin-left: auto; color: var(--text-tertiary); font-size: 20px; transition: transform var(--dur-2) var(--ease-out); }
+    details[open] summary::after { transform: rotate(45deg); }
+    details p { color: var(--text-secondary); margin: 0 0 18px; }
+
+    footer { border-top: 1px solid var(--border-subtle); padding: 32px 0 48px; color: var(--text-tertiary); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+
+    /* ---------- scroll reveal */
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity var(--dur-4) var(--ease-out), transform var(--dur-4) var(--ease-settle); }
+    .reveal.in { opacity: 1; transform: none; }
+    .reveal.d1 { transition-delay: 80ms; } .reveal.d2 { transition-delay: 160ms; } .reveal.d3 { transition-delay: 240ms; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+      .spell, .goblin, .cap { opacity: 1; transform: none; }
+      .walk { transform: translate(80px, -30px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav aria-label="Main">
+      <a class="brand" href="#">
+        <span class="brand-mark"><i data-lucide="dices" aria-hidden="true"></i></span>
+        Lonely Dungeon Master
+      </a>
+      <div class="nav-links">
+        <a class="quiet" href="#how">How it works</a>
+        <a class="quiet" href="#start">Get started</a>
+        <a class="btn btn-ghost" href="https://github.com/ZackFairSldrFrst/lonely-dungeon-master"><i data-lucide="github" aria-hidden="true"></i> GitHub</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <span class="eyebrow"><span class="dot" aria-hidden="true"></span> Free and open source</span>
+        <h1>Your campaign shouldn't wait for <em>five calendars</em> to line up.</h1>
+        <p class="lede">Maybe your friends are busy. Maybe you moved and the group didn't come with you. Maybe you never had one. Lonely Dungeon Master puts an AI Dungeon Master at your real table, with your real miniatures, so you can play tonight.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/ZackFairSldrFrst/lonely-dungeon-master"><i data-lucide="github" aria-hidden="true"></i> Get the code</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="small">Runs on your own computer. Bring an OpenRouter key, or run everything offline with Ollama.</p>
+      </div>
+
+      <div class="table-scene" role="img" aria-label="Animation: a projected grid on a dark table. A fighter miniature with a blue ring walks forward, the player says Hey DM, and a gold holy spell bursts over a goblin with a red aura while the narration appears.">
+        <svg viewBox="0 0 480 360" aria-hidden="true">
+          <defs>
+            <pattern id="g" width="30" height="30" patternUnits="userSpaceOnUse">
+              <path d="M30 0H0V30" fill="none" stroke="#3a4a66" stroke-opacity=".55" stroke-width="1" />
+            </pattern>
+            <radialGradient id="clear">
+              <stop offset="60%" stop-color="#fff" />
+              <stop offset="100%" stop-color="#000" />
+            </radialGradient>
+            <mask id="fog">
+              <rect width="480" height="360" fill="#000" />
+              <g class="walk"><circle cx="150" cy="240" r="150" fill="url(#clear)" /></g>
+            </mask>
+            <radialGradient id="redfill"><stop offset="0" stop-color="#ff3b30" stop-opacity=".55" /><stop offset="1" stop-color="#ff3b30" stop-opacity="0" /></radialGradient>
+            <radialGradient id="goldfill"><stop offset="0" stop-color="#ffc94a" stop-opacity=".45" /><stop offset="1" stop-color="#ffc94a" stop-opacity="0" /></radialGradient>
+          </defs>
+          <rect width="480" height="360" fill="#000" />
+          <rect width="480" height="360" fill="url(#g)" mask="url(#fog)" />
+          <!-- goblin, hidden until the fighter's light reaches it -->
+          <g mask="url(#fog)">
+            <g class="goblin">
+              <circle class="aura-pulse" cx="330" cy="150" r="26" fill="url(#redfill)" />
+              <circle class="ring-spin" cx="330" cy="150" r="20" fill="none" stroke="#ff3b30" stroke-width="2.5" stroke-dasharray="14 8" />
+              <circle cx="330" cy="150" r="8" fill="#5a2a22" />
+            </g>
+          </g>
+          <!-- holy spell -->
+          <circle class="burst" cx="330" cy="150" r="70" fill="none" stroke="#ffc94a" stroke-width="3" />
+          <g class="spell">
+            <circle cx="330" cy="150" r="62" fill="url(#goldfill)" />
+            <circle class="ring-spin" cx="330" cy="150" r="62" fill="none" stroke="#ffc94a" stroke-width="2.5" stroke-dasharray="3 9" />
+          </g>
+          <!-- fighter -->
+          <g class="walk">
+            <circle cx="150" cy="240" r="24" fill="none" stroke="#3d8bff" stroke-opacity=".35" stroke-width="8" />
+            <circle cx="150" cy="240" r="20" fill="none" stroke="#3d8bff" stroke-width="2.5" />
+            <circle class="ring-spin" cx="150" cy="240" r="27" fill="none" stroke="#3d8bff" stroke-width="1.5" stroke-dasharray="10 18" />
+            <circle cx="150" cy="240" r="9" fill="#2b2f3a" />
+            <g class="mic">
+              <rect x="128" y="186" width="96" height="26" rx="13" fill="#1a171c" stroke="#3a3439" />
+              <text x="176" y="203" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" fill="#f0ece8">"Hey DM, I smite it"</text>
+            </g>
+          </g>
+        </svg>
+        <div class="cap" aria-hidden="true">Holy light bursts from your blade. The goblin reels back, smoking.</div>
+      </div>
+    </header>
+  </div>
+
+  <section id="why">
+    <div class="wrap">
+      <h2 class="reveal">Getting a group together is the hardest part of D&amp;D.</h2>
+      <p class="section-lede reveal">Session zero goes great. Then someone gets a new job, someone has a baby, and the group chat goes quiet for three weeks. The dice and the minis go back in the box. This project exists so they don't have to.</p>
+      <div class="grid3">
+        <div class="card reveal">
+          <div class="icon"><i data-lucide="calendar-x" aria-hidden="true"></i></div>
+          <h3>Your friends are busy</h3>
+          <p>Play a side quest between real sessions. Your character keeps moving, and nobody has to find a free Saturday.</p>
+        </div>
+        <div class="card reveal d1">
+          <div class="icon"><i data-lucide="user-round" aria-hidden="true"></i></div>
+          <h3>You don't have a group</h3>
+          <p>Run a party of one, or play every hero yourself. The DM keeps track of turns, hit points and what's hiding in the dark.</p>
+        </div>
+        <div class="card reveal d2">
+          <div class="icon"><i data-lucide="crown" aria-hidden="true"></i></div>
+          <h3>You're always the DM</h3>
+          <p>The forever-DM finally gets to be a player. Hand the screen to the AI and enjoy being surprised for once.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2 class="reveal">How it works</h2>
+      <p class="section-lede reveal">It still feels like a tabletop game, because it is one. You move real miniatures with your hands. The computer watches the board and paints light onto it.</p>
+      <ol class="steps">
+        <li class="card reveal">
+          <div class="icon"><i data-lucide="webcam" aria-hidden="true"></i></div>
+          <p class="num" aria-hidden="true"></p>
+          <h3>A webcam looks down</h3>
+          <p>Each miniature wears a small printed square tag. The camera reads the tags and knows which mini stands on which square.</p>
+        </li>
+        <li class="card reveal d1">
+          <div class="icon"><i data-lucide="projector" aria-hidden="true"></i></div>
+          <p class="num" aria-hidden="true"></p>
+          <h3>A projector lights the table</h3>
+          <p>A grid, a blue ring under each hero, a red target under each monster, and fog that only lifts where your party can see.</p>
+        </li>
+        <li class="card reveal d2">
+          <div class="icon"><i data-lucide="mic" aria-hidden="true"></i></div>
+          <p class="num" aria-hidden="true"></p>
+          <h3>You talk to the DM</h3>
+          <p>Say "Hey DM" and what you want to do. It listens, looks at the table, and follows the 5th Edition rules.</p>
+        </li>
+        <li class="card reveal d3">
+          <div class="icon"><i data-lucide="sparkles" aria-hidden="true"></i></div>
+          <p class="num" aria-hidden="true"></p>
+          <h3>The DM answers out loud</h3>
+          <p>It narrates in a spoken voice while spells, blasts and beams appear right on the squares they hit.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="real">
+    <div class="wrap grid2" style="align-items:center">
+      <div>
+        <h2 class="reveal">This is the real projector output.</h2>
+        <p class="section-lede reveal">Not a mockup. This screenshot came straight from the display page in demo mode: four heroes pushing back the fog, goblins still hidden in the dark, and the DM's last turn painted onto the grid.</p>
+        <ul class="check reveal">
+          <li><i data-lucide="check" aria-hidden="true"></i><span><b>Calibrated to your table:</b> four green dots line the camera up with the projector in about a minute.</span></li>
+          <li><i data-lucide="check" aria-hidden="true"></i><span><b>Hands don't break it:</b> if your hand covers a mini for a second, its ring stays put.</span></li>
+          <li><i data-lucide="check" aria-hidden="true"></i><span><b>Works with any minis:</b> glue a tag under the base or tuck it on top. Print them from the app.</span></li>
+        </ul>
+      </div>
+      <figure class="reveal d1">
+        <div class="shot"><img src="projector.png" width="1920" height="1080" alt="Projector output: a blue grid on black, glowing blue rings under four player miniatures, red target auras under goblins, a gold spell circle, an orange blast ring, a cyan beam, and a narration caption at the bottom." loading="lazy" /></div>
+        <figcaption>Demo mode, 1920 x 1080. On a real table the black parts are just unlit table.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="need">
+    <div class="wrap grid2">
+      <div>
+        <h2 class="reveal">What you need</h2>
+        <p class="section-lede reveal">Nothing exotic. Most of it might already be in a drawer.</p>
+      </div>
+      <ul class="check reveal d1">
+        <li><i data-lucide="webcam" aria-hidden="true"></i><span><b>Any USB webcam</b> mounted above the table, looking straight down.</span></li>
+        <li><i data-lucide="projector" aria-hidden="true"></i><span><b>Any small projector</b> pointing at the same spot. A mini projector on a shelf or a cheap arm works.</span></li>
+        <li><i data-lucide="laptop" aria-hidden="true"></i><span><b>A computer</b> running Windows, macOS or Linux, with Python and a microphone.</span></li>
+        <li><i data-lucide="printer" aria-hidden="true"></i><span><b>A printer</b> for the miniature tags.</span></li>
+        <li><i data-lucide="key-round" aria-hidden="true"></i><span><b>An AI brain:</b> paste one OpenRouter key and pick any model, or run a local model with Ollama for free and offline.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="start">
+    <div class="wrap">
+      <h2 class="reveal">Get started</h2>
+      <p class="section-lede reveal">Five commands. The full guide, with camera mounting tips, lives in the <a href="https://github.com/ZackFairSldrFrst/lonely-dungeon-master#readme">README</a>.</p>
+      <pre class="reveal" tabindex="0" aria-label="Setup commands"><code><span class="c"># 1. Get the code</span>
+git clone https://github.com/ZackFairSldrFrst/lonely-dungeon-master
+cd lonely-dungeon-master && pip install -r requirements.txt
+
+<span class="c"># 2. Add your key (this file never leaves your computer)</span>
+echo "OPENROUTER_API_KEY=your-key-here" &gt; .env
+
+<span class="c"># 3. Print tags, then line up camera and projector</span>
+python main.py --mode markers
+python main.py --mode calibrate
+
+<span class="c"># 4. Play. Open the link it prints on the projector and press F.</span>
+python main.py --mode run
+
+<span class="c"># No camera yet? Try it with pretend miniatures:</span>
+python main.py --mode demo</code></pre>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <h2 class="reveal">Questions</h2>
+      <div class="reveal">
+        <details>
+          <summary>Is it free?</summary>
+          <p>The software is free and open source under the MIT license. If you use a cloud AI through OpenRouter, you pay them for what you use. With Ollama, local Whisper and a local voice, it costs nothing to run.</p>
+        </details>
+        <details>
+          <summary>Does it work offline?</summary>
+          <p>Yes. Set the AI provider to Ollama, speech recognition to local, and the voice to Piper or pyttsx3. Then nothing leaves your computer.</p>
+        </details>
+        <details>
+          <summary>Can I play with friends too?</summary>
+          <p>Yes. Everyone sits around the same table and talks to the DM. It just doesn't need anyone else to show up before you can start.</p>
+        </details>
+        <details>
+          <summary>Which rules does it use?</summary>
+          <p>Dungeons &amp; Dragons 5th Edition. It rolls dice out loud, tracks hit points and conditions, and measures range from where your miniatures actually stand.</p>
+        </details>
+        <details>
+          <summary>Can I help build it?</summary>
+          <p>Please do. Open an issue or a pull request on GitHub. Saved campaigns and map loading are both open to anyone who wants them.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>Lonely Dungeon Master. MIT licensed. Not affiliated with Wizards of the Coast.</span>
+      <a href="https://github.com/ZackFairSldrFrst/lonely-dungeon-master">Source on GitHub</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script>
+    if (window.lucide) lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+    const io = 'IntersectionObserver' in window && new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach((el) => io ? io.observe(el) : el.classList.add('in'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+# Lonely Dungeon Master configuration.
+# API keys are NEVER stored here. Each provider names the environment
+# variable that holds its key (e.g. `export ANTHROPIC_API_KEY=...`).
+
+camera:
+  id: 0                 # OpenCV camera index of the overhead webcam
+  width: 1280
+  height: 720
+
+projector:
+  display_index: 1      # which monitor is the projector (0 = primary)
+  width: 1920           # projector resolution in pixels
+  height: 1080
+  # How many projector pixels cover one real inch of table.
+  # Tune it: run the app, measure one projected grid square with a ruler,
+  # then set pixels_per_inch = current_value * (grid_size_inches / measured_inches).
+  pixels_per_inch: 40
+  calibration_file: calibration_matrix.json
+
+vision:
+  grid_size_inches: 1.0       # 1" squares, standard battle mat
+  aruco_dictionary: DICT_4X4_50
+  fps: 5                      # tracker updates per second sent to the projector
+  lost_timeout_s: 1.0         # keep a mini on the map this long after it disappears (hands block the camera)
+  fog_radius_cells: 6         # how far each player can see through the fog of war (in grid squares)
+  calibration_hsv_low: [40, 80, 80]     # green target color range (OpenCV HSV)
+  calibration_hsv_high: [85, 255, 255]
+
+# Marker id -> what that miniature is. Unlisted markers show up as monsters named "marker_<id>".
+entities:
+  1:  { label: Fighter, role: player }
+  2:  { label: Wizard,  role: player }
+  3:  { label: Cleric,  role: player }
+  12: { label: Rogue,   role: player }
+  30: { label: Goblin,  role: monster }
+  31: { label: Goblin Archer, role: monster }
+  40: { label: Ogre,    role: monster }
+
+ai:
+  # openrouter = easiest: one key, any model. Put OPENROUTER_API_KEY=... in a .env file next to main.py.
+  provider: openrouter        # openrouter | anthropic | openai | ollama
+  send_snapshot: true         # attach the overhead camera image to each DM turn
+  max_history_turns: 20
+  temperature: 0.8
+  openrouter:
+    model: google/gemini-3.8-flash   # fast + cheap with vision; try anthropic/claude-sonnet-5.5 for richer storytelling
+    api_key_env: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+  anthropic:
+    model: claude-sonnet-5
+    api_key_env: ANTHROPIC_API_KEY
+    max_tokens: 1024
+  openai:
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    base_url: null            # set to use any OpenAI-compatible server
+  ollama:
+    model: llama3.2-vision
+    host: http://localhost:11434
+
+voice:
+  enabled: true
+  stt: local                  # local (faster-whisper) | openai (Whisper API)
+  local_whisper_model: small  # tiny | base | small | medium
+  openai_stt_model: whisper-1
+  hotword: hey dm
+  hotword_enabled: true       # always listening for "Hey DM ..."
+  keyboard_enabled: true      # press Enter in the terminal to talk, or type a command
+  sample_rate: 16000
+  silence_threshold: 0.015    # mic loudness (0-1) that counts as speech; raise in noisy rooms
+  silence_duration_s: 0.8     # this much quiet ends a phrase
+  max_phrase_s: 20
+  tts: pyttsx3                # elevenlabs | piper | pyttsx3 | none
+  elevenlabs:
+    api_key_env: ELEVENLABS_API_KEY
+    voice_id: JBFqnCBsd6RMkjVDRZzb
+    model: eleven_flash_v2_5
+  piper:
+    binary: piper
+    model_path: voices/en_US-ryan-high.onnx
+    sample_rate: 22050
+
+server:
+  host: 127.0.0.1
+  port: 8765

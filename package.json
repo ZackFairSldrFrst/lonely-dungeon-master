@@ -1,0 +1,20 @@
+{
+  "name": "lonely-dungeon-master",
+  "version": "0.1.0",
+  "description": "Projection-mapped tabletop display for Lonely Dungeon Master",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite frontend",
+    "build": "vite build frontend --outDir dist --emptyOutDir",
+    "smoke": "node scripts/ws-smoke.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "ws": "^8.18.0"
+  }
+}
